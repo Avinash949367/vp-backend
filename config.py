@@ -1,4 +1,5 @@
 import os
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -13,7 +14,30 @@ class Settings(BaseSettings):
     rate_limit_window: int = 60  # seconds
 
     # CORS settings
-    cors_origins: list = ["http://localhost:3000", "http://localhost:8080"]
+    cors_origins: list[str] = ["http://localhost:3000","http://localhost:8080"]
+
+    @field_validator('cors_origins', mode='before')
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if v is None or v == "":
+            return cls.cors_origins  # Use default
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return []
+            # Try parsing as JSON first
+            try:
+                import json
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return [str(origin).strip() for origin in parsed if origin]
+            except (json.JSONDecodeError, ImportError):
+                pass
+            # Fallback to comma-separated
+            return [origin.strip() for origin in v.split(',') if origin.strip()]
+        return v
 
     # Logging settings
     log_level: str = "INFO"
